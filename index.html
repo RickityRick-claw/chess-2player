@@ -14,132 +14,123 @@
             align-items: center;
             justify-content: center;
             font-family: system-ui;
-            padding: 1rem;
+            padding: 10px;
         }
-        h1 { color: white; margin-bottom: 0.5rem; }
         
-        .mode-select {
-            margin-bottom: 1rem;
-        }
-        .mode-select button {
-            padding: 0.5rem 1rem;
-            margin: 0 0.25rem;
+        /* Screens */
+        .screen { display: none; flex-direction: column; align-items: center; }
+        .screen.active { display: flex; }
+        
+        h1 { color: white; margin-bottom: 1rem; }
+        
+        /* Menu */
+        .menu-btn {
+            padding: 1rem 2rem;
+            margin: 0.5rem;
+            font-size: 1.2rem;
             background: #333;
             color: white;
             border: 2px solid #555;
-            border-radius: 5px;
+            border-radius: 10px;
             cursor: pointer;
+            width: 200px;
         }
-        .mode-select button.active {
-            background: #e94560;
-            border-color: #e94560;
-        }
+        .menu-btn:hover { background: #444; }
         
+        /* Board */
         #board {
             display: grid;
-            grid-template-columns: repeat(8, 50px);
-            grid-template-rows: repeat(8, 50px);
+            grid-template-columns: repeat(8, 45px);
+            grid-template-rows: repeat(8, 45px);
             border: 5px solid #4a3728;
             user-select: none;
         }
         .square {
-            width: 50px;
-            height: 50px;
+            width: 45px;
+            height: 45px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 36px;
             cursor: pointer;
+            position: relative;
         }
         .white-sq { background: #f0d9b5; }
         .black-sq { background: #b58863; }
         .selected { box-shadow: inset 0 0 0 3px #ffff00; }
         .possible { position: relative; }
         .possible::after {
-            content: ''; position: absolute; width: 15px; height: 15px;
-            background: rgba(0,200,0,0.5); border-radius: 50%;
+            content: ''; position: absolute;
+            width: 12px; height: 12px;
+            background: rgba(0,180,0,0.5);
+            border-radius: 50%;
         }
         .capture::after {
-            width: 45px; height: 45px; background: none; border: 3px solid rgba(0,200,0,0.5); border-radius: 0;
+            width: 40px; height: 40px;
+            background: none;
+            border: 4px solid rgba(0,180,0,0.5);
+            border-radius: 50%;
         }
         
         .piece {
-            width: 44px;
-            height: 44px;
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
+            font-size: 35px;
+            line-height: 1;
         }
         
-        #status { color: #ccc; margin: 1rem; font-size: 1rem; }
-        #status.check { color: #ff6b6b; }
+        #status {
+            color: #ccc;
+            margin: 10px;
+            font-size: 1rem;
+            text-align: center;
+        }
         
-        #new-game {
-            padding: 0.5rem 1.5rem;
+        .back-btn {
+            padding: 0.5rem 1rem;
             background: #e94560;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            margin-top: 1rem;
+            margin-top: 10px;
         }
         
-        .code-display {
-            background: #0f0f1a;
-            padding: 1rem;
-            border-radius: 10px;
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-        .code-display input {
-            padding: 0.5rem;
-            font-size: 1.2rem;
-            width: 100px;
-            text-align: center;
-            letter-spacing: 5px;
-            background: #222;
-            color: white;
-            border: 2px solid #444;
-            border-radius: 5px;
-        }
-        .code-display button {
-            padding: 0.5rem 1rem;
-            margin-left: 0.5rem;
-            background: #457b9d;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+        @media (max-width: 400px) {
+            #board {
+                grid-template-columns: repeat(8, 40px);
+                grid-template-rows: repeat(8, 40px);
+            }
+            .square { width: 40px; height: 40px; }
+            .piece { font-size: 30px; }
         }
     </style>
 </head>
 <body>
-    <h1>♟️ Chess</h1>
-    
-    <div class="mode-select">
-        <button id="btn-pvp" class="active" onclick="setMode('pvp')">vs Player</button>
-        <button id="btn-pvc" onclick="setMode('pvc')">vs Computer</button>
+    <!-- Menu Screen -->
+    <div id="menu-screen" class="screen active">
+        <h1>♟️ Chess</h1>
+        <button class="menu-btn" onclick="showScreen('pvp-screen')">vs Player</button>
+        <button class="menu-btn" onclick="showScreen('pvc-screen')">vs Computer</button>
     </div>
     
-    <div id="status">White's turn</div>
-    <div id="board"></div>
-    <button id="new-game" onclick="initGame()">New Game</button>
+    <!-- PvP Screen -->
+    <div id="pvp-screen" class="screen">
+        <h1>vs Player</h1>
+        <div id="status">White's turn</div>
+        <div id="board"></div>
+        <button class="back-btn" onclick="showScreen('menu-screen')">Back to Menu</button>
+    </div>
+    
+    <!-- PvC Screen -->
+    <div id="pvc-screen" class="screen">
+        <h1>vs Computer</h1>
+        <div id="status-c">White's turn</div>
+        <div id="board-c"></div>
+        <button class="back-btn" onclick="showScreen('menu-screen')">Back to Menu</button>
+    </div>
 
     <script>
-        // Lichess piece images
         const pieces = {
-            'P': 'https://lichess1.org/assets/hashed/wP.0596b7ce.svg',
-            'R': 'https://lichess1.org/assets/hashed/wR.e9e95adc.svg',
-            'N': 'https://lichess1.org/assets/hashed/wN.68b788d7.svg',
-            'B': 'https://lichess1.org/assets/hashed/wB.b7d1a118.svg',
-            'Q': 'https://lichess1.org/assets/hashed/wQ.79c9227e.svg',
-            'K': 'https://lichess1.org/assets/hashed/wK.bc7274dd.svg',
-            'p': 'https://lichess1.org/assets/hashed/bP.09539f32.svg',
-            'r': 'https://lichess1.org/assets/hashed/bR.c33a3d54.svg',
-            'n': 'https://lichess1.org/assets/hashed/bN.d0665564.svg',
-            'b': 'https://lichess1.org/assets/hashed/bB.77e9debf.svg',
-            'q': 'https://lichess1.org/assets/hashed/bQ.5abdb5aa.svg',
-            'k': 'https://lichess1.org/assets/hashed/bK.c5f22c23.svg',
+            'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔',
+            'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚'
         };
         
         const initialBoard = [
@@ -153,66 +144,68 @@
             ['R','N','B','Q','K','B','N','R']
         ];
         
-        let board = [];
-        let turn = 'white';
-        let selected = null;
-        let possibleMoves = [];
+        let board = [], turn = 'white', selected = null, possibleMoves = [];
         let mode = 'pvp';
         
-        function setMode(m) {
-            mode = m;
-            document.getElementById('btn-pvp').className = m === 'pvp' ? 'active' : '';
-            document.getElementById('btn-pvc').className = m === 'pvc' ? 'active' : '';
-            initGame();
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if (id === 'pvp-screen') { mode = 'pvp'; initGame('board'); }
+            if (id === 'pvc-screen') { mode = 'pvc'; initGame('board-c'); }
         }
         
-        function initGame() {
+        function initGame(boardId) {
             board = initialBoard.map(row => [...row]);
             turn = 'white';
             selected = null;
             possibleMoves = [];
-            render();
+            render(boardId);
         }
         
-        function render() {
-            const boardEl = document.getElementById('board');
+        function render(boardId) {
+            const boardEl = document.getElementById(boardId);
+            if (!boardEl) return;
             boardEl.innerHTML = '';
             
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
                     const sq = document.createElement('div');
                     sq.className = `square ${(r + c) % 2 === 0 ? 'white-sq' : 'black-sq'}`;
-                    sq.dataset.r = r;
-                    sq.dataset.c = c;
+                    sq.onclick = () => handleClick(r, c, boardId);
                     
                     const piece = board[r][c];
                     if (piece) {
-                        const img = document.createElement('div');
-                        img.className = 'piece';
-                        img.style.backgroundImage = `url('${pieces[piece]}')`;
-                        sq.appendChild(img);
+                        const p = document.createElement('span');
+                        p.className = 'piece';
+                        p.textContent = pieces[piece];
+                        // White pieces = black text, Black pieces = black text on light, white on dark
+                        if (piece === piece.toUpperCase()) {
+                            p.style.color = '#fff';
+                            p.style.textShadow = '0 0 2px #000';
+                        } else {
+                            const isDark = (r + c) % 2 === 1;
+                            p.style.color = isDark ? '#fff' : '#000';
+                            p.style.textShadow = isDark ? '0 0 2px #000' : 'none';
+                        }
+                        sq.appendChild(p);
                     }
                     
-                    if (selected && selected.r === r && selected.c === c) {
-                        sq.classList.add('selected');
-                    }
+                    if (selected && selected.r === r && selected.c === c) sq.classList.add('selected');
                     if (possibleMoves.some(m => m.r === r && m.c === c)) {
                         sq.classList.add('possible');
                         if (board[r][c]) sq.classList.add('capture');
                     }
                     
-                    sq.onclick = () => handleClick(r, c);
                     boardEl.appendChild(sq);
                 }
             }
             
-            const statusEl = document.getElementById('status');
-            statusEl.textContent = turn === 'white' ? "White's turn" : "Black's turn";
-            statusEl.className = '';
+            const statusId = mode === 'pvp' ? 'status' : 'status-c';
+            const statusEl = document.getElementById(statusId);
+            if (statusEl) statusEl.textContent = turn === 'white' ? "White's turn" : "Black's turn";
         }
         
-        function handleClick(r, c) {
-            // Computer's turn - don't allow clicks
+        function handleClick(r, c, boardId) {
             if (mode === 'pvc' && turn === 'black') return;
             
             const piece = board[r][c];
@@ -221,13 +214,13 @@
             if (isMyPiece) {
                 selected = {r, c};
                 possibleMoves = getValidMoves(r, c, piece);
-                render();
+                render(boardId);
             } else if (selected && possibleMoves.some(m => m.r === r && m.c === c)) {
-                movePiece(selected.r, selected.c, r, c);
+                movePiece(selected.r, selected.c, r, c, boardId);
             }
         }
         
-        function movePiece(fromR, fromC, toR, toC) {
+        function movePiece(fromR, fromC, toR, toC, boardId) {
             board[toR][toC] = board[fromR][fromC];
             board[fromR][fromC] = '';
             
@@ -238,16 +231,14 @@
             selected = null;
             possibleMoves = [];
             turn = turn === 'white' ? 'black' : 'white';
-            render();
+            render(boardId);
             
-            // Computer move
             if (mode === 'pvc' && turn === 'black') {
-                setTimeout(computerMove, 500);
+                setTimeout(() => computerMove('board-c'), 500);
             }
         }
         
-        function computerMove() {
-            // Simple random valid move for now
+        function computerMove(boardId) {
             const allMoves = [];
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
@@ -261,7 +252,7 @@
             
             if (allMoves.length > 0) {
                 const move = allMoves[Math.floor(Math.random() * allMoves.length)];
-                movePiece(move.from.r, move.from.c, move.to.r, move.to.c);
+                movePiece(move.from.r, move.from.c, move.to.r, move.to.c, boardId);
             }
         }
         
@@ -283,14 +274,17 @@
             
             switch(piece.toLowerCase()) {
                 case 'p':
+                    // Forward 1
                     if (board[r + direction]?.[c] === '') {
                         addIfValid(r + direction, c);
+                        // Forward 2 (start)
                         if ((isWhite && r === 6) || (!isWhite && r === 1)) {
                             if (board[r + 2 * direction]?.[c] === '') {
                                 addIfValid(r + 2 * direction, c);
                             }
                         }
                     }
+                    // Capture diagonal
                     addIfValid(r + direction, c - 1);
                     addIfValid(r + direction, c + 1);
                     break;
@@ -326,11 +320,8 @@
                     });
                     break;
             }
-            
             return moves;
         }
-        
-        initGame();
     </script>
 </body>
 </html>
