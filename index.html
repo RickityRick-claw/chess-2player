@@ -12,14 +12,14 @@
         #game { display: none; width: min(90vw, 400px); }
         #game.show { display: block; }
         #board { display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; aspect-ratio: 1; border: 5px solid #654321; }
-        .sq { display: flex; align-items: center; justify-content: center; font-size: clamp(20px, 8vw, 40px); cursor: pointer; }
+        .sq { display: flex; align-items: center; justify-content: center; font-size: clamp(24px, 8vw, 42px); font-weight: bold; cursor: pointer; }
         .light { background: #f0d9b5; }
         .dark { background: #b58863; }
         .selected { background: #baca44 !important; }
-        .hint::after { content: ''; position: absolute; width: 20%; height: 20%; background: rgba(0,200,0,0.4); border-radius: 50%; }
+        .hint::after { content: ''; position: absolute; width: 20%; height: 20%; background: rgba(0,200,0,0.5); border-radius: 50%; }
         .hint { position: relative; }
         .piece { cursor: grab; }
-        .w-piece { color: #fff; text-shadow: 1px 1px 2px #000; }
+        .w-piece { color: #fff; -webkit-text-stroke: 1px #000; }
         .b-piece { color: #000; }
         #status { color: #ccc; padding: 10px; text-align: center; }
         #back { margin-top: 15px; padding: 10px 25px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; }
@@ -38,15 +38,19 @@
     </div>
 
 <script>
-// Chess logic
-const SYMBOLS = { w: { k:'♔', q:'♕', r:'♖', b:'♗', n:'♘', p:'♙' }, b: { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' }};
+// Using simple letters for pieces
+const PIECES = {
+    w: { k:'K', q:'Q', r:'R', b:'B', n:'N', p:'P' },
+    b: { k:'k', q:'r', r:'r', b:'b', n:'n', p:'p' }
+};
+
 const START = [
     ['r','n','b','q','k','b','n','r'],
     ['p','p','p','p','p','p','p','p'],
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,0,0,0,0,0],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
     ['P','P','P','P','P','P','P','P'],
     ['R','N','B','Q','K','B','N','R']
 ];
@@ -57,10 +61,19 @@ function startPVP() { mode = 'pvp'; startGame(); }
 function startPVC() { mode = 'pvc'; startGame(); }
 
 function startGame() {
-    board = START.map(r => r.map(c => c ? { color: c===c.toUpperCase()?'w':'b', type:c.toLowerCase() } : null));
+    board = JSON.parse(JSON.stringify(START));
+    for(let r=0;r<8;r++) {
+        for(let c=0;c<8;c++) {
+            if(board[r][c]) {
+                const s = board[r][c];
+                board[r][c] = { color: s === s.toUpperCase() ? 'w' : 'b', type: s.toLowerCase() };
+            }
+        }
+    }
     turn = 'w'; selected = null; hints = [];
     document.getElementById('menu').style.display = 'none';
     document.getElementById('game').classList.add('show');
+    console.log('Board:', board);
     render();
 }
 
@@ -110,6 +123,7 @@ function getRawMoves(bd, r, c, type) {
 }
 
 function render() {
+    console.log('Rendering, board[0][0]:', board[0][0]);
     const el = document.getElementById('board'); el.innerHTML = '';
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
@@ -118,7 +132,9 @@ function render() {
             if (selected && selected[0]===r && selected[1]===c) sq.classList.add('selected');
             if (hints.some(h=>h[0]===r && h[1]===c)) sq.classList.add('hint');
             const p = board[r][c];
-            if (p) { sq.innerHTML = '<span class="piece '+(p.color==='w'?'w-piece':'b-piece')+'">'+SYMBOLS[p.color][p.type]+'</span>'; }
+            if (p) { 
+                sq.innerHTML = '<span class="piece '+(p.color==='w'?'w-piece':'b-piece')+'">'+PIECES[p.color][p.type]+'</span>'; 
+            }
             sq.onclick = () => click(r,c);
             el.appendChild(sq);
         }
