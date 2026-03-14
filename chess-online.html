@@ -40,6 +40,54 @@
         .waiting { color: #ffa500; font-size: 14px; margin-top: 10px; }
         .connected { color: #4CAF50; font-size: 14px; margin-top: 10px; }
         
+        /* Winner overlay */
+        #winner-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #winner-overlay.show { display: flex; }
+        #winner-overlay img {
+            width: 300px;
+            height: 300px;
+            object-fit: contain;
+            animation: bounce 0.5s infinite alternate;
+        }
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-20px); }
+        }
+        #winner-text {
+            font-size: 48px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 0 0 20px #FFD700, 0 0 40px #FFA500;
+            margin-top: 20px;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        #play-again-btn {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        
         .hidden { display: none !important; }
     </style>
 </head>
@@ -67,6 +115,13 @@
             </div>
             <div id="online-status" style="text-align:center;"></div>
         </div>
+    </div>
+    
+    <!-- Winner Overlay -->
+    <div id="winner-overlay">
+        <img src="https://media.giphy.com/media/3o7TKTDn5ozRYGXaQU/giphy.gif" alt="Dancing Squirrel">
+        <div id="winner-text"></div>
+        <button id="play-again-btn" onclick="closeWinnerOverlay()">Play Again</button>
     </div>
     
     <!-- Game Container -->
@@ -411,6 +466,7 @@
                     winner = (winner === myColor) ? 'You' : (winner === 'White' ? 'White' : 'Black');
                 }
                 status = 'Game over, ' + winner + ' wins!';
+                showWinner(winner);
             }
             else if(game.in_draw()) {
                 stopTimer();
@@ -422,6 +478,55 @@
             }
             
             $('#status').text(status);
+        }
+        
+        function showWinner(winner) {
+            // Play victory sound
+            playVictorySound();
+            
+            // Show overlay
+            $('#winner-text').text(winner + ' Wins!');
+            $('#winner-overlay').addClass('show');
+        }
+        
+        function closeWinnerOverlay() {
+            $('#winner-overlay').removeClass('show');
+            stopVictorySound();
+            showMenu();
+        }
+        
+        var victoryAudio = null;
+        function playVictorySound() {
+            // Create victory sound using Web Audio API
+            try {
+                var AudioContext = window.AudioContext || window.webkitAudioContext;
+                if(AudioContext) {
+                    var ctx = new AudioContext();
+                    
+                    // Play a victory tune - series of ascending notes
+                    var notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                    var delay = 0;
+                    notes.forEach(function(freq) {
+                        var osc = ctx.createOscillator();
+                        var gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.frequency.value = freq;
+                        osc.type = 'sine';
+                        gain.gain.setValueAtTime(0.3, ctx.currentTime + delay);
+                        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + 0.5);
+                        osc.start(ctx.currentTime + delay);
+                        osc.stop(ctx.currentTime + delay + 0.5);
+                        delay += 0.15;
+                    });
+                }
+            } catch(e) {
+                console.log('Audio not supported');
+            }
+        }
+        
+        function stopVictorySound() {
+            // Sound stops automatically
         }
     </script>
 </body>
