@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Chess - Online Multiplayer</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { background: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; color: white; font-family: Arial, sans-serif; }
+        h1 { margin: 0 0 15px 0; }
+        .screen { display: none; width: 420px; max-width: 95vw; }
+        .screen.active { display: block; }
+        .menu { display: flex; flex-direction: column; gap: 12px; }
+        .menu button, .online-section button { padding: 15px 30px; font-size: 16px; background: #333; color: white; border: 2px solid #555; border-radius: 8px; cursor: pointer; margin: 5px; }
+        .menu button:hover, .online-section button:hover { background: #444; border-color: #777; }
+        #game-container { display: none; width: 400px; }
+        #game-container.show { display: block; }
+        #board { width: 100%; margin: 10px 0; }
+        #status { color: #ccc; padding: 10px; text-align: center; font-size: 16px; }
+        .btn-back { margin-top: 15px; padding: 10px 25px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Online section styles */
+        .online-section { background: #252540; padding: 20px; border-radius: 10px; margin-top: 15px; }
+        .online-section input { padding: 12px; font-size: 16px; border-radius: 5px; border: none; width: 150px; text-align: center; text-transform: uppercase; }
+        .code-display { background: #1a1a2e; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; }
+        .code-display .code { font-size: 28px; font-weight: bold; color: #4CAF50; letter-spacing: 4px; }
+        .code-display .label { color: #888; font-size: 12px; margin-bottom: 5px; }
+        .waiting { color: #ffa500; font-size: 14px; margin-top: 10px; }
+        .connected { color: #4CAF50; font-size: 14px; margin-top: 10px; }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <h1>Chess</h1>
+    
+    <!-- Menu Screen -->
+    <div class="screen active" id="menu-screen">
+        <div class="menu">
+            <button onclick="startLocalGame('pvp')">vs Player (Local)</button>
+            <button onclick="startLocalGame('pvc')">vs Computer</button>
+        </div>
+        
+        <div class="online-section">
+            <h3 style="margin-top:0; text-align:center;">Play Online</h3>
+            <div style="text-align:center;">
+                <input type="text" id="room-code-input" placeholder="ROOM CODE" maxlength="6">
+                <button onclick="joinGame()">Join Game</button>
+            </div>
+            <div style="text-align:center; margin-top:10px;">
+                <span style="color:#888;">or</span>
+            </div>
+            <div style="text-align:center;">
+                <button onclick="createOnlineGame()" style="background:#4CAF50;">Create New Game</button>
+            </div>
+            <div id="online-status" style="text-align:center;"></div>
+        </div>
+    </div>
+    
+    <!-- Game Container -->
+    <div id="game-container">
+        <div id="board"></div>
+        <div id="status"></div>
+        <button class="btn-back" onclick="showMenu()">Back to Menu</button>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script>
+        var board = null;
+        var game = new Chess();
+        var mode = 'pvp';
+        var myColor = 'white';
+        var peer = null;
+        var conn = null;
+        var isOnline = false;
+        var myRoomCode = '';
+        
+        var config = {
+            draggable: true,
+            position: 'start',
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            onSnapEnd: onSnapEnd
+        };
+        
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for(let i=0; i<6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+            return code;
+        }
+        
+        function showMenu() {
+            $('#game-container').removeClass('show');
+            $('#menu-screen').addClass('active');
+            board = null;
+            if(conn) { conn.close(); conn = null; }
+            if(peer) { peer.destroy(); peer = null; }
+            isOnline = false;
+            myRoomCode = '';
+            $('#online-status').html('');
+        }
+        
+        function startLocalGame(selectedMode) {
+            mode = selectedMode;
+            game.reset();
+            myColor = 'white';
+            isOnline = false;
+            $('#menu-screen').removeClass('active');
+            $('#game-container').addClass('show');
+            board = Chessboard('board', config);
+            updateStatus();
+        }
+        
+        function createOnlineGame() {
+            myRoomCode = generateRoomCode();
+            myColor = 'white';
+            isOnline = true;
+            
+            $('#online-status').html(`
+                <div class="code-display">
+                    <div class="label">Share this code with your friend:</div>
+                    <div class="code">${myRoomCode}</div>
+                    <div class="waiting">Waiting for opponent to join...</div>
+                </div>
+            `);
+            
+            // Create PeerJS connection
+            peer = new Peer('chess-' + myRoomCode);
+            
+            peer.on('open', function(id) {
+                console.log('Created room:', myRoomCode);
+            });
+            
+            peer.on('connection', function(c) {
+                conn = c;
+                setupConnection();
+            });
+            
+            peer.on('error', function(err) {
+                console.error('Peer error:', err);
+                $('#online-status').html('<div class="waiting" style="color:red;">Error creating game. Try again.</div>');
+            });
+        }
+        
+        function joinGame() {
+            var code = $('#room-code-input').val().toUpperCase().trim();
+            if(code.length !== 6) {
+                alert('Please enter a 6-character room code');
+                return;
+            }
+            
+            myRoomCode = code;
+            myColor = 'black';
+            isOnline = true;
+            
+            $('#online-status').html('<div class="waiting">Connecting to game...</div>');
+            
+            peer = new Peer();
+            
+            peer.on('open', function() {
+                conn = peer.connect('chess-' + code);
+                setupConnection();
+            });
+            
+            peer.on('error', function(err) {
+                console.error('Peer error:', err);
+                $('#online-status').html('<div class="waiting" style="color:red;">Could not find game. Check the code.</div>');
+            });
+        }
+        
+        function setupConnection() {
+            conn.on('open', function() {
+                console.log('Connected!');
+                $('#online-status').html('<div class="connected">Connected! Starting game...</div>');
+                
+                // Start game
+                setTimeout(() => {
+                    game.reset();
+                    $('#menu-screen').removeClass('active');
+                    $('#game-container').addClass('show');
+                    board = Chessboard('board', {
+                        ...config,
+                        orientation: myColor
+                    });
+                    updateStatus();
+                    
+                    // Send initial position
+                    conn.send({ type: 'init', fen: game.fen() });
+                }, 1000);
+            });
+            
+            conn.on('data', function(data) {
+                console.log('Received:', data);
+                if(data.type === 'move') {
+                    game.load(data.fen);
+                    board.position(game.fen());
+                    updateStatus();
+                } else if(data.type === 'init') {
+                    game.load(data.fen);
+                    board.position(game.fen());
+                    updateStatus();
+                }
+            });
+            
+            conn.on('close', function() {
+                alert('Connection lost!');
+                showMenu();
+            });
+        }
+        
+        function onDragStart(source, piece, position, orientation) {
+            if(game.game_over()) return false;
+            
+            // Online mode - only drag your own pieces
+            if(isOnline) {
+                if((myColor === 'white' && piece.search(/^b/) !== -1) ||
+                   (myColor === 'black' && piece.search(/^w/) !== -1)) {
+                    return false;
+                }
+            } else if(mode === 'pvc') {
+                if(piece.search(/^b/) !== -1) return false;
+            } else {
+                // Local PVP
+                if((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                   (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                    return false;
+                }
+            }
+        }
+        
+        function onDrop(source, target) {
+            var move = game.move({ from: source, to: target, promotion: 'q' });
+            if(move === null) return 'snapback';
+            
+            board.position(game.fen());
+            updateStatus();
+            
+            // Send move to opponent (online mode)
+            if(isOnline && conn && conn.open) {
+                conn.send({ type: 'move', fen: game.fen() });
+            }
+            
+            // Computer move
+            if(mode === 'pvc' && game.turn() === 'b' && !game.game_over()) {
+                setTimeout(makeComputerMove, 300);
+            }
+        }
+        
+        function makeComputerMove() {
+            var moves = game.moves();
+            if(game.game_over() || moves.length === 0) return;
+            game.move(moves[Math.floor(Math.random() * moves.length)]);
+            board.position(game.fen());
+            updateStatus();
+        }
+        
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+        
+        function updateStatus() {
+            var status = '';
+            var turn = game.turn() === 'b' ? 'Black' : 'White';
+            
+            if(isOnline) {
+                turn = myColor === 'white' ? (game.turn() === 'w' ? 'Your' : "Opponent's") : (game.turn() === 'b' ? 'Your' : "Opponent's");
+            }
+            
+            if(game.in_checkmate()) status = 'Game over, ' + turn + ' wins!';
+            else if(game.in_draw()) status = 'Draw';
+            else {
+                status = turn + "'s turn";
+                if(game.in_check()) status += ' (Check!)';
+            }
+            
+            $('#status').text(status);
+        }
+    </script>
+</body>
+</html>
