@@ -471,7 +471,8 @@
             }
             else if(game.in_draw()) {
                 stopTimer();
-                status = 'Draw';
+                status = 'Draw!';
+                showWinner('Draw');
             }
             else {
                 status = turn + "'s turn";
