@@ -55,16 +55,6 @@
             align-items: center;
         }
         #winner-overlay.show { display: flex; }
-        #winner-overlay img {
-            width: 300px;
-            height: 300px;
-            object-fit: contain;
-            animation: bounce 0.5s infinite alternate;
-        }
-        @keyframes bounce {
-            from { transform: translateY(0); }
-            to { transform: translateY(-20px); }
-        }
         #winner-text {
             font-size: 48px;
             font-weight: bold;
@@ -128,7 +118,13 @@
         <div id="yt-container">
             <div id="yt-player"></div>
         </div>
-        <img src="https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif" alt="Dancing Squirrel">
+        <div style="font-size: 150px; animation: dance 0.5s infinite alternate;">🐿️</div>
+        <style>
+        @keyframes dance {
+            0% { transform: rotate(-10deg) scale(1); }
+            100% { transform: rotate(10deg) scale(1.1); }
+        }
+        </style>
         <div id="winner-text"></div>
         <button id="play-again-btn" onclick="closeWinnerOverlay()">Play Again</button>
     </div>
