@@ -405,7 +405,12 @@
             
             if(game.in_checkmate()) {
                 stopTimer();
-                status = 'Game over, ' + turn + ' wins!';
+                // game.turn() returns the player who got checkmated, so winner is opposite
+                var winner = game.turn() === 'w' ? 'Black' : 'White';
+                if(isOnline) {
+                    winner = (winner === myColor) ? 'You' : (winner === 'White' ? 'White' : 'Black');
+                }
+                status = 'Game over, ' + winner + ' wins!';
             }
             else if(game.in_draw()) {
                 stopTimer();
