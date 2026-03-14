@@ -19,6 +19,18 @@
         #status { color: #ccc; padding: 10px; text-align: center; font-size: 16px; }
         .btn-back { margin-top: 15px; padding: 10px 25px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; }
         
+        /* Timer styles */
+        .timer-container { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 10px; background: #252540; border-radius: 8px; }
+        .timer { text-align: center; padding: 8px 15px; border-radius: 5px; min-width: 80px; }
+        .timer.white { background: #333; border: 2px solid #666; }
+        .timer.black { background: #333; border: 2px solid #666; }
+        .timer.active { border-color: #4CAF50; }
+        .timer.active.white { background: #1a3a1a; }
+        .timer.active.black { background: #3a1a1a; }
+        .timer .label { font-size: 12px; color: #888; display: block; }
+        .timer .time { font-size: 24px; font-weight: bold; font-family: monospace; }
+        .timer.low-time .time { color: #ff4444; }
+        
         /* Online section styles */
         .online-section { background: #252540; padding: 20px; border-radius: 10px; margin-top: 15px; }
         .online-section input { padding: 12px; font-size: 16px; border-radius: 5px; border: none; width: 150px; text-align: center; text-transform: uppercase; }
@@ -59,6 +71,16 @@
     
     <!-- Game Container -->
     <div id="game-container">
+        <div class="timer-container">
+            <div class="timer white active" id="timer-white">
+                <span class="label">White</span>
+                <span class="time">10:00</span>
+            </div>
+            <div class="timer black" id="timer-black">
+                <span class="label">Black</span>
+                <span class="time">10:00</span>
+            </div>
+        </div>
         <div id="board"></div>
         <div id="status"></div>
         <button class="btn-back" onclick="showMenu()">Back to Menu</button>
@@ -77,6 +99,13 @@
         var isOnline = false;
         var myRoomCode = '';
         
+        // Timer variables
+        const GAME_TIME = 10 * 60; // 10 minutes in seconds
+        var whiteTime = GAME_TIME;
+        var blackTime = GAME_TIME;
+        var timerInterval = null;
+        var currentTimerTurn = 'white';
+        
         var config = {
             draggable: true,
             position: 'start',
@@ -86,6 +115,81 @@
             onSnapEnd: onSnapEnd
         };
         
+        function formatTime(seconds) {
+            var mins = Math.floor(seconds / 60);
+            var secs = seconds % 60;
+            return mins + ':' + (secs < 10 ? '0' : '') + secs;
+        }
+        
+        function updateTimerDisplay() {
+            $('#timer-white .time').text(formatTime(whiteTime));
+            $('#timer-black .time').text(formatTime(blackTime));
+            
+            // Highlight active timer
+            $('#timer-white').toggleClass('active', currentTimerTurn === 'white');
+            $('#timer-black').toggleClass('active', currentTimerTurn === 'black');
+            
+            // Low time warning
+            $('#timer-white').toggleClass('low-time', whiteTime <= 30 && whiteTime > 0);
+            $('#timer-black').toggleClass('low-time', blackTime <= 30 && blackTime > 0);
+        }
+        
+        function startTimer() {
+            stopTimer();
+            currentTimerTurn = game.turn() === 'w' ? 'white' : 'black';
+            updateTimerDisplay();
+            
+            timerInterval = setInterval(function() {
+                if(currentTimerTurn === 'white') {
+                    whiteTime--;
+                    if(whiteTime <= 0) {
+                        whiteTime = 0;
+                        endGameByTime('black');
+                    }
+                } else {
+                    blackTime--;
+                    if(blackTime <= 0) {
+                        blackTime = 0;
+                        endGameByTime('white');
+                    }
+                }
+                updateTimerDisplay();
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            if(timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+        
+        function switchTimer() {
+            currentTimerTurn = currentTimerTurn === 'white' ? 'black' : 'white';
+            updateTimerDisplay();
+        }
+        
+        function endGameByTime(winner) {
+            stopTimer();
+            var winnerName = winner === 'white' ? 'White' : 'Black';
+            if(isOnline) {
+                winnerName = (winner === myColor) ? 'You' : 'Opponent';
+            }
+            alert('Time up! ' + winnerName + ' wins!');
+            game.reset();
+            resetGame();
+        }
+        
+        function resetGame() {
+            whiteTime = GAME_TIME;
+            blackTime = GAME_TIME;
+            currentTimerTurn = 'white';
+            updateTimerDisplay();
+            if($('#game-container').hasClass('show')) {
+                startTimer();
+            }
+        }
+        
         function generateRoomCode() {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             let code = '';
@@ -94,6 +198,7 @@
         }
         
         function showMenu() {
+            stopTimer();
             $('#game-container').removeClass('show');
             $('#menu-screen').addClass('active');
             board = null;
@@ -109,10 +214,12 @@
             game.reset();
             myColor = 'white';
             isOnline = false;
+            resetGame();
             $('#menu-screen').removeClass('active');
             $('#game-container').addClass('show');
             board = Chessboard('board', config);
             updateStatus();
+            startTimer();
         }
         
         function createOnlineGame() {
@@ -128,7 +235,6 @@
                 </div>
             `);
             
-            // Create PeerJS connection
             peer = new Peer('chess-' + myRoomCode);
             
             peer.on('open', function(id) {
@@ -177,9 +283,9 @@
                 console.log('Connected!');
                 $('#online-status').html('<div class="connected">Connected! Starting game...</div>');
                 
-                // Start game
                 setTimeout(() => {
                     game.reset();
+                    resetGame();
                     $('#menu-screen').removeClass('active');
                     $('#game-container').addClass('show');
                     board = Chessboard('board', {
@@ -187,9 +293,15 @@
                         orientation: myColor
                     });
                     updateStatus();
+                    startTimer();
                     
-                    // Send initial position
-                    conn.send({ type: 'init', fen: game.fen() });
+                    // Send initial state
+                    conn.send({ 
+                        type: 'init', 
+                        fen: game.fen(),
+                        whiteTime: whiteTime,
+                        blackTime: blackTime
+                    });
                 }, 1000);
             });
             
@@ -198,15 +310,30 @@
                 if(data.type === 'move') {
                     game.load(data.fen);
                     board.position(game.fen());
+                    // Sync timer
+                    if(data.whiteTime !== undefined) {
+                        whiteTime = data.whiteTime;
+                        blackTime = data.blackTime;
+                        currentTimerTurn = data.currentTimerTurn;
+                        updateTimerDisplay();
+                    }
                     updateStatus();
+                    switchTimer();
                 } else if(data.type === 'init') {
                     game.load(data.fen);
                     board.position(game.fen());
+                    if(data.whiteTime !== undefined) {
+                        whiteTime = data.whiteTime;
+                        blackTime = data.blackTime;
+                        updateTimerDisplay();
+                    }
                     updateStatus();
+                    startTimer();
                 }
             });
             
             conn.on('close', function() {
+                stopTimer();
                 alert('Connection lost!');
                 showMenu();
             });
@@ -215,7 +342,6 @@
         function onDragStart(source, piece, position, orientation) {
             if(game.game_over()) return false;
             
-            // Online mode - only drag your own pieces
             if(isOnline) {
                 if((myColor === 'white' && piece.search(/^b/) !== -1) ||
                    (myColor === 'black' && piece.search(/^w/) !== -1)) {
@@ -224,7 +350,6 @@
             } else if(mode === 'pvc') {
                 if(piece.search(/^b/) !== -1) return false;
             } else {
-                // Local PVP
                 if((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
                    (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
                     return false;
@@ -237,11 +362,18 @@
             if(move === null) return 'snapback';
             
             board.position(game.fen());
+            switchTimer();
             updateStatus();
             
-            // Send move to opponent (online mode)
+            // Send move with timer state
             if(isOnline && conn && conn.open) {
-                conn.send({ type: 'move', fen: game.fen() });
+                conn.send({ 
+                    type: 'move', 
+                    fen: game.fen(),
+                    whiteTime: whiteTime,
+                    blackTime: blackTime,
+                    currentTimerTurn: currentTimerTurn
+                });
             }
             
             // Computer move
@@ -255,6 +387,7 @@
             if(game.game_over() || moves.length === 0) return;
             game.move(moves[Math.floor(Math.random() * moves.length)]);
             board.position(game.fen());
+            switchTimer();
             updateStatus();
         }
         
@@ -270,8 +403,14 @@
                 turn = myColor === 'white' ? (game.turn() === 'w' ? 'Your' : "Opponent's") : (game.turn() === 'b' ? 'Your' : "Opponent's");
             }
             
-            if(game.in_checkmate()) status = 'Game over, ' + turn + ' wins!';
-            else if(game.in_draw()) status = 'Draw';
+            if(game.in_checkmate()) {
+                stopTimer();
+                status = 'Game over, ' + turn + ' wins!';
+            }
+            else if(game.in_draw()) {
+                stopTimer();
+                status = 'Draw';
+            }
             else {
                 status = turn + "'s turn";
                 if(game.in_check()) status += ' (Check!)';
