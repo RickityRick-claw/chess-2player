@@ -169,28 +169,10 @@
         var timerInterval = null;
         var currentTimerTurn = 'white';
         
-        // SVG chess pieces as data URIs
-        var pieceSVGs = {
-            'P': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjMDAwIj5QPC90ZXh0Pjwvc3ZnPg==',
-            'R': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjMDAwIj5SPC90ZXh0Pjwvc3ZnPg==',
-            'N': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjMDAwIj5OPC90ZXh0Pjwvc3ZnPg==',
-            'B': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjMDAwIj5CPC90ZXh0Pjwvc3ZnPg==',
-            'Q': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjMDAwIj5RPC90ZXh0Pjwvc3ZnPg==',
-            'K': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjMDAwIj5LPC90ZXh0Pjwvc3ZnPg==',
-            'p': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjZmZmIj5wPC90ZXh0Pjwvc3ZnPg==',
-            'r': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjZmZmIj5SPC90ZXh0Pjwvc3ZnPg==',
-            'n': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjZmZmIj5OPC90ZXh0Pjwvc3ZnPg==',
-            'b': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjZmZmIj5CPC90ZXh0Pjwvc3ZnPg==',
-            'q': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjZmZmIj5RPC90ZXh0Pjwvc3ZnPg==',
-            'k': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGNpcmNsZSBjeD0iMjIiIGN5PSIyMiIgcj0iMTgiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMjIiIHk9IjI0IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgdGV4dC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjZmZmIj5LPC90ZXh0Pjwvc3ZnPg=='
-        };
-        
         var config = {
             draggable: true,
             position: 'start',
-            pieceTheme: function(piece) {
-                return pieceSVGs[piece] || '';
-            },
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
             onDragStart: onDragStart,
             onDrop: onDrop,
             onSnapEnd: onSnapEnd
