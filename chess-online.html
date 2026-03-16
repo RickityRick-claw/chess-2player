@@ -16,6 +16,21 @@
         #game-container { display: none; width: 400px; }
         #game-container.show { display: block; }
         #board { width: 100%; margin: 10px 0; }
+        
+        /* Click-to-move highlights */
+        .highlight-selected { background-color: rgba(255, 255, 0, 0.5) !important; }
+        .highlight-possible::after {
+            content: ''; position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 30%; height: 30%;
+            background: rgba(0, 200, 0, 0.6); border-radius: 50%;
+        }
+        .highlight-capture::after {
+            content: ''; position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 80%; height: 80%;
+            border: 4px solid rgba(200, 0, 0, 0.6); border-radius: 50%; background: transparent;
+        }
         #status { color: #ccc; padding: 10px; text-align: center; font-size: 16px; }
         .btn-back { margin-top: 15px; padding: 10px 25px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; }
         
@@ -169,8 +184,12 @@
         var timerInterval = null;
         var currentTimerTurn = 'white';
         
+        // Click-to-move variables
+        var selectedSquare = null;
+        var possibleMoves = [];
+        
         var config = {
-            draggable: true,
+            draggable: true, // Keep true for rendering, click also works
             position: 'start',
             pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
             onDragStart: onDragStart,
@@ -247,6 +266,8 @@
             whiteTime = GAME_TIME;
             blackTime = GAME_TIME;
             currentTimerTurn = 'white';
+            selectedSquare = null;
+            possibleMoves = [];
             updateTimerDisplay();
             if($('#game-container').hasClass('show')) {
                 startTimer();
@@ -283,6 +304,12 @@
             board = Chessboard('board', config);
             updateStatus();
             startTimer();
+            
+            // Add click handler for squares
+            $('#board').on('click', '.square-55d63', function() {
+                var square = $(this).data('square');
+                onSquareClick(square);
+            });
         }
         
         function createOnlineGame() {
@@ -357,6 +384,12 @@
                     });
                     updateStatus();
                     startTimer();
+                    
+                    // Add click handler for online games
+                    $('#board').off('click').on('click', '.square-55d63', function() {
+                        var square = $(this).data('square');
+                        onSquareClick(square);
+                    });
                     
                     // Send initial state
                     conn.send({ 
@@ -456,6 +489,92 @@
         
         function onSnapEnd() {
             board.position(game.fen());
+        }
+        
+        // Click-to-move handler
+        function onSquareClick(square) {
+            if(game.game_over()) return;
+            
+            // Prevent clicking during AI turn in PvC mode
+            if(mode === 'pvc' && game.turn() === 'b' && !isOnline) return;
+            if(isOnline && game.turn() !== (myColor === 'white' ? 'w' : 'b')) return;
+            
+            var piece = game.get(square);
+            
+            if(selectedSquare === null) {
+                // First click - select piece
+                if(piece && ((game.turn() === 'w' && piece.color === 'w') || 
+                             (game.turn() === 'b' && piece.color === 'b'))) {
+                    selectedSquare = square;
+                    possibleMoves = game.moves({ square: square, verbose: true }).map(m => m.to);
+                    drawHighlights();
+                }
+            } else {
+                // Second click
+                if(possibleMoves.includes(square)) {
+                    // Move to highlighted square
+                    var move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+                    selectedSquare = null;
+                    possibleMoves = [];
+                    board.position(game.fen());
+                    switchTimer();
+                    updateStatus();
+                    
+                    // Send move online
+                    if(isOnline && conn && conn.open) {
+                        conn.send({ type: 'move', fen: game.fen(), whiteTime: whiteTime, blackTime: blackTime, currentTimerTurn: currentTimerTurn });
+                    }
+                    
+                    // AI move
+                    if(mode === 'pvc' && game.turn() === 'b' && !game.game_over()) {
+                        setTimeout(makeComputerMove, 300);
+                    }
+                } else if(square === selectedSquare) {
+                    // Clicked same square - deselect
+                    selectedSquare = null;
+                    possibleMoves = [];
+                } else if(piece && ((game.turn() === 'w' && piece.color === 'w') || 
+                                    (game.turn() === 'b' && piece.color === 'b'))) {
+                    // Clicked different own piece - select that instead
+                    selectedSquare = square;
+                    possibleMoves = game.moves({ square: square, verbose: true }).map(m => m.to);
+                } else {
+                    // Clicked elsewhere - deselect
+                    selectedSquare = null;
+                    possibleMoves = [];
+                }
+                drawHighlights();
+            }
+        }
+        
+        function drawHighlights() {
+            board.position(game.fen());
+            $('.square-55d63').removeClass('highlight-selected highlight-possible highlight-capture');
+            
+            if(selectedSquare) {
+                var $sq = $('.square-55d63').find('[data-square="' + selectedSquare + '"]').closest('.square-55d63');
+                $sq.addClass('highlight-selected');
+                
+                possibleMoves.forEach(function(toSq) {
+                    var $toSq = $('.square-55d63').find('[data-square="' + toSq + '"]').closest('.square-55d63');
+                    var targetPiece = game.get(toSq);
+                    if(targetPiece) {
+                        $toSq.addClass('highlight-capture');
+                    } else {
+                        $toSq.addClass('highlight-possible');
+                    }
+                });
+            }
+        }
+        
+        function makeComputerMove() {
+            // Will use Stockfish - added later
+            var moves = game.moves();
+            if(game.game_over() || moves.length === 0) return;
+            game.move(moves[Math.floor(Math.random() * moves.length)]);
+            board.position(game.fen());
+            switchTimer();
+            updateStatus();
         }
         
         function updateStatus() {
