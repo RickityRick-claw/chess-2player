@@ -108,7 +108,15 @@
     <div class="screen active" id="menu-screen">
         <div class="menu">
             <button onclick="startLocalGame('pvp')">vs Player (Local)</button>
-            <button onclick="startLocalGame('pvc')">vs Computer</button>
+            <button onclick="showDifficultySelect()">vs Computer</button>
+        <div id="difficulty-select" style="display:none; background:#252540; padding:15px; border-radius:10px; margin-top:10px;">
+            <div style="text-align:center; margin-bottom:10px;">Select Difficulty:</div>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button onclick="startLocalGame('pvc-easy')" style="background:#4CAF50;">Easy</button>
+                <button onclick="startLocalGame('pvc-medium')" style="background:#FF9800;">Medium</button>
+                <button onclick="startLocalGame('pvc-hard')" style="background:#f44336;">Hard</button>
+            </div>
+        </div>
         </div>
         
         <div class="online-section">
@@ -293,6 +301,11 @@
             $('#online-status').html('');
         }
         
+        function showDifficultySelect() {
+            var el = document.getElementById('difficulty-select');
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+        
         function startLocalGame(selectedMode) {
             mode = selectedMode;
             game.reset();
@@ -443,7 +456,7 @@
                    (myColor === 'black' && piece.search(/^w/) !== -1)) {
                     return false;
                 }
-            } else if(mode === 'pvc') {
+            } else if(mode.startsWith('pvc')) {
                 if(piece.search(/^b/) !== -1) return false;
             } else {
                 if((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
@@ -473,7 +486,7 @@
             }
             
             // Computer move
-            if(mode === 'pvc' && game.turn() === 'b' && !game.game_over()) {
+            if(mode.startsWith('pvc') && game.turn() === 'b' && !game.game_over()) {
                 setTimeout(makeComputerMove, 300);
             }
         }
@@ -481,7 +494,35 @@
         function makeComputerMove() {
             var moves = game.moves();
             if(game.game_over() || moves.length === 0) return;
-            game.move(moves[Math.floor(Math.random() * moves.length)]);
+            
+            var selectedMove;
+            if(mode === 'pvc-easy') {
+                // Easy: mostly random, occasionally pick capture
+                var captures = moves.filter(m => m.includes('x'));
+                if(captures.length > 0 && Math.random() < 0.3) {
+                    selectedMove = captures[Math.floor(Math.random() * captures.length)];
+                } else {
+                    selectedMove = moves[Math.floor(Math.random() * moves.length)];
+                }
+            } else if(mode === 'pvc-medium') {
+                // Medium: 50% random, 50% captures/checks
+                var good = moves.filter(m => m.includes('x') || m.includes('+'));
+                if(good.length > 0 && Math.random() < 0.5) {
+                    selectedMove = good[Math.floor(Math.random() * good.length)];
+                } else {
+                    selectedMove = moves[Math.floor(Math.random() * moves.length)];
+                }
+            } else {
+                // Hard: prefer captures and checks
+                var good = moves.filter(m => m.includes('x') || m.includes('+'));
+                if(good.length > 0) {
+                    selectedMove = good[Math.floor(Math.random() * good.length)];
+                } else {
+                    selectedMove = moves[Math.floor(Math.random() * moves.length)];
+                }
+            }
+            
+            game.move(selectedMove);
             board.position(game.fen());
             switchTimer();
             updateStatus();
@@ -496,7 +537,7 @@
             if(game.game_over()) return;
             
             // Prevent clicking during AI turn in PvC mode
-            if(mode === 'pvc' && game.turn() === 'b' && !isOnline) return;
+            if(mode.startsWith('pvc') && game.turn() === 'b' && !isOnline) return;
             if(isOnline && game.turn() !== (myColor === 'white' ? 'w' : 'b')) return;
             
             var piece = game.get(square);
@@ -526,7 +567,7 @@
                     }
                     
                     // AI move
-                    if(mode === 'pvc' && game.turn() === 'b' && !game.game_over()) {
+                    if(mode.startsWith('pvc') && game.turn() === 'b' && !game.game_over()) {
                         setTimeout(makeComputerMove, 300);
                     }
                 } else if(square === selectedSquare) {
