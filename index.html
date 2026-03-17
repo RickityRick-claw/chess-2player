@@ -2,30 +2,166 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Chess</title>
+    <title>Chess - Online Multiplayer</title>
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        h1 { color: white; margin: 0 0 15px 0; }
-        .menu { display: flex; flex-direction: column; gap: 10px; }
-        .menu button { padding: 15px 40px; font-size: 18px; background: #333; color: white; border: 2px solid #555; border-radius: 8px; cursor: pointer; }
-        #game-container { display: none; width: 400px; max-width: 95vw; }
+        body { background: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; color: white; font-family: Arial, sans-serif; }
+        h1 { margin: 0 0 15px 0; }
+        .screen { display: none; width: 420px; max-width: 95vw; }
+        .screen.active { display: block; }
+        .menu { display: flex; flex-direction: column; gap: 12px; }
+        .menu button, .online-section button { padding: 15px 30px; font-size: 16px; background: #333; color: white; border: 2px solid #555; border-radius: 8px; cursor: pointer; margin: 5px; }
+        .menu button:hover, .online-section button:hover { background: #444; border-color: #777; }
+        #game-container { display: none; width: 400px; }
         #game-container.show { display: block; }
         #board { width: 100%; margin: 10px 0; }
-        #status { color: #ccc; padding: 10px; text-align: center; }
-        #backBtn { margin-top: 15px; padding: 10px 25px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Click-to-move highlights */
+        .highlight-selected { background-color: rgba(255, 255, 0, 0.5) !important; }
+        .highlight-possible::after {
+            content: ''; position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 30%; height: 30%;
+            background: rgba(0, 200, 0, 0.6); border-radius: 50%;
+        }
+        .highlight-capture::after {
+            content: ''; position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 80%; height: 80%;
+            border: 4px solid rgba(200, 0, 0, 0.6); border-radius: 50%; background: transparent;
+        }
+        #status { color: #ccc; padding: 10px; text-align: center; font-size: 16px; }
+        .btn-back { margin-top: 15px; padding: 10px 25px; background: #e94560; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Timer styles */
+        .timer-container { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 10px; background: #252540; border-radius: 8px; }
+        .timer { text-align: center; padding: 8px 15px; border-radius: 5px; min-width: 80px; }
+        .timer.white { background: #333; border: 2px solid #666; }
+        .timer.black { background: #333; border: 2px solid #666; }
+        .timer.active { border-color: #4CAF50; }
+        .timer.active.white { background: #1a3a1a; }
+        .timer.active.black { background: #3a1a1a; }
+        .timer .label { font-size: 12px; color: #888; display: block; }
+        .timer .time { font-size: 24px; font-weight: bold; font-family: monospace; }
+        .timer.low-time .time { color: #ff4444; }
+        
+        /* Online section styles */
+        .online-section { background: #252540; padding: 20px; border-radius: 10px; margin-top: 15px; }
+        .online-section input { padding: 12px; font-size: 16px; border-radius: 5px; border: none; width: 150px; text-align: center; text-transform: uppercase; }
+        .code-display { background: #1a1a2e; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; }
+        .code-display .code { font-size: 28px; font-weight: bold; color: #4CAF50; letter-spacing: 4px; }
+        .code-display .label { color: #888; font-size: 12px; margin-bottom: 5px; }
+        .waiting { color: #ffa500; font-size: 14px; margin-top: 10px; }
+        .connected { color: #4CAF50; font-size: 14px; margin-top: 10px; }
+        
+        /* Winner overlay */
+        #winner-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #winner-overlay.show { display: flex; }
+        #winner-text {
+            font-size: 48px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 0 0 20px #FFD700, 0 0 40px #FFA500;
+            margin-top: 20px;
+            animation: pulse 1s infinite;
+        }
+        
+        /* YouTube video container */
+        #yt-container {
+            display: none;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        #play-again-btn {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
     <h1>Chess</h1>
-    <div class="menu" id="menu">
-        <button onclick="startGame('pvp')">vs Player</button>
-        <button onclick="startGame('pvc')">vs Computer</button>
+    
+    <!-- Menu Screen -->
+    <div class="screen active" id="menu-screen">
+        <div class="menu">
+            <button onclick="startLocalGame('pvp')">vs Player (Local)</button>
+            <button onclick="startLocalGame('pvc')">vs Computer</button>
+        </div>
+        
+        <div class="online-section">
+            <h3 style="margin-top:0; text-align:center;">Play Online</h3>
+            <div style="text-align:center;">
+                <input type="text" id="room-code-input" placeholder="ROOM CODE" maxlength="6">
+                <button onclick="joinGame()">Join Game</button>
+            </div>
+            <div style="text-align:center; margin-top:10px;">
+                <span style="color:#888;">or</span>
+            </div>
+            <div style="text-align:center;">
+                <button onclick="createOnlineGame()" style="background:#4CAF50;">Create New Game</button>
+            </div>
+            <div id="online-status" style="text-align:center;"></div>
+        </div>
     </div>
+    
+    <!-- Winner Overlay -->
+    <!-- v2 - Winner celebration -->
+    <div id="winner-overlay">
+        <div id="yt-container">
+            <div id="yt-player"></div>
+        </div>
+        <div style="font-size: 150px; animation: dance 0.5s infinite alternate;">🐿️</div>
+        <style>
+        @keyframes dance {
+            0% { transform: rotate(-10deg) scale(1); }
+            100% { transform: rotate(10deg) scale(1.1); }
+        }
+        </style>
+        <div id="winner-text"></div>
+        <button id="play-again-btn" onclick="closeWinnerOverlay()">Play Again</button>
+    </div>
+    
+    <!-- YouTube API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+    
+    <!-- Game Container -->
     <div id="game-container">
+        <div class="timer-container">
+            <div class="timer white active" id="timer-white">
+                <span class="label">White</span>
+                <span class="time">10:00</span>
+            </div>
+            <div class="timer black" id="timer-black">
+                <span class="label">Black</span>
+                <span class="time">10:00</span>
+            </div>
+        </div>
         <div id="board"></div>
         <div id="status"></div>
-        <button id="backBtn" onclick="showMenu()">Back</button>
+        <button class="btn-back" onclick="showMenu()">Back to Menu</button>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
@@ -35,9 +171,25 @@
         var board = null;
         var game = new Chess();
         var mode = 'pvp';
+        var myColor = 'white';
+        var peer = null;
+        var conn = null;
+        var isOnline = false;
+        var myRoomCode = '';
+        
+        // Timer variables
+        const GAME_TIME = 10 * 60; // 10 minutes in seconds
+        var whiteTime = GAME_TIME;
+        var blackTime = GAME_TIME;
+        var timerInterval = null;
+        var currentTimerTurn = 'white';
+        
+        // Click-to-move variables
+        var selectedSquare = null;
+        var possibleMoves = [];
         
         var config = {
-            draggable: true,
+            draggable: true, // Keep true for rendering, click also works
             position: 'start',
             pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
             onDragStart: onDragStart,
@@ -45,56 +197,466 @@
             onSnapEnd: onSnapEnd
         };
         
-        function startGame(selectedMode) {
-            mode = selectedMode;
+        function formatTime(seconds) {
+            var mins = Math.floor(seconds / 60);
+            var secs = seconds % 60;
+            return mins + ':' + (secs < 10 ? '0' : '') + secs;
+        }
+        
+        function updateTimerDisplay() {
+            $('#timer-white .time').text(formatTime(whiteTime));
+            $('#timer-black .time').text(formatTime(blackTime));
+            
+            // Highlight active timer
+            $('#timer-white').toggleClass('active', currentTimerTurn === 'white');
+            $('#timer-black').toggleClass('active', currentTimerTurn === 'black');
+            
+            // Low time warning
+            $('#timer-white').toggleClass('low-time', whiteTime <= 30 && whiteTime > 0);
+            $('#timer-black').toggleClass('low-time', blackTime <= 30 && blackTime > 0);
+        }
+        
+        function startTimer() {
+            stopTimer();
+            currentTimerTurn = game.turn() === 'w' ? 'white' : 'black';
+            updateTimerDisplay();
+            
+            timerInterval = setInterval(function() {
+                if(currentTimerTurn === 'white') {
+                    whiteTime--;
+                    if(whiteTime <= 0) {
+                        whiteTime = 0;
+                        endGameByTime('black');
+                    }
+                } else {
+                    blackTime--;
+                    if(blackTime <= 0) {
+                        blackTime = 0;
+                        endGameByTime('white');
+                    }
+                }
+                updateTimerDisplay();
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            if(timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+        
+        function switchTimer() {
+            currentTimerTurn = currentTimerTurn === 'white' ? 'black' : 'white';
+            updateTimerDisplay();
+        }
+        
+        function endGameByTime(winner) {
+            stopTimer();
+            var winnerName = winner === 'white' ? 'White' : 'Black';
+            if(isOnline) {
+                winnerName = (winner === myColor) ? 'You' : 'Opponent';
+            }
+            alert('Time up! ' + winnerName + ' wins!');
             game.reset();
-            document.getElementById('menu').style.display = 'none';
-            document.getElementById('game-container').classList.add('show');
-            board = Chessboard('board', config);
-            updateStatus();
+            resetGame();
+        }
+        
+        function resetGame() {
+            whiteTime = GAME_TIME;
+            blackTime = GAME_TIME;
+            currentTimerTurn = 'white';
+            selectedSquare = null;
+            possibleMoves = [];
+            updateTimerDisplay();
+            if($('#game-container').hasClass('show')) {
+                startTimer();
+            }
+        }
+        
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for(let i=0; i<6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+            return code;
         }
         
         function showMenu() {
-            document.getElementById('game-container').classList.remove('show');
-            document.getElementById('menu').style.display = 'flex';
+            stopTimer();
+            $('#game-container').removeClass('show');
+            $('#menu-screen').addClass('active');
             board = null;
+            if(conn) { conn.close(); conn = null; }
+            if(peer) { peer.destroy(); peer = null; }
+            isOnline = false;
+            myRoomCode = '';
+            $('#online-status').html('');
+        }
+        
+        function startLocalGame(selectedMode) {
+            mode = selectedMode;
+            game.reset();
+            myColor = 'white';
+            isOnline = false;
+            resetGame();
+            $('#menu-screen').removeClass('active');
+            $('#game-container').addClass('show');
+            board = Chessboard('board', config);
+            updateStatus();
+            startTimer();
+            
+            // Add click handler for squares
+            $('#board').on('click', '.square-55d63', function() {
+                var square = $(this).data('square');
+                onSquareClick(square);
+            });
+        }
+        
+        function createOnlineGame() {
+            myRoomCode = generateRoomCode();
+            myColor = 'white';
+            isOnline = true;
+            
+            $('#online-status').html(`
+                <div class="code-display">
+                    <div class="label">Share this code with your friend:</div>
+                    <div class="code">${myRoomCode}</div>
+                    <div class="waiting">Waiting for opponent to join...</div>
+                </div>
+            `);
+            
+            peer = new Peer('chess-' + myRoomCode);
+            
+            peer.on('open', function(id) {
+                console.log('Created room:', myRoomCode);
+            });
+            
+            peer.on('connection', function(c) {
+                conn = c;
+                setupConnection();
+            });
+            
+            peer.on('error', function(err) {
+                console.error('Peer error:', err);
+                $('#online-status').html('<div class="waiting" style="color:red;">Error creating game. Try again.</div>');
+            });
+        }
+        
+        function joinGame() {
+            var code = $('#room-code-input').val().toUpperCase().trim();
+            if(code.length !== 6) {
+                alert('Please enter a 6-character room code');
+                return;
+            }
+            
+            myRoomCode = code;
+            myColor = 'black';
+            isOnline = true;
+            
+            $('#online-status').html('<div class="waiting">Connecting to game...</div>');
+            
+            peer = new Peer();
+            
+            peer.on('open', function() {
+                conn = peer.connect('chess-' + code);
+                setupConnection();
+            });
+            
+            peer.on('error', function(err) {
+                console.error('Peer error:', err);
+                $('#online-status').html('<div class="waiting" style="color:red;">Could not find game. Check the code.</div>');
+            });
+        }
+        
+        function setupConnection() {
+            conn.on('open', function() {
+                console.log('Connected!');
+                $('#online-status').html('<div class="connected">Connected! Starting game...</div>');
+                
+                setTimeout(() => {
+                    game.reset();
+                    resetGame();
+                    $('#menu-screen').removeClass('active');
+                    $('#game-container').addClass('show');
+                    board = Chessboard('board', {
+                        ...config,
+                        orientation: myColor
+                    });
+                    updateStatus();
+                    startTimer();
+                    
+                    // Add click handler for online games
+                    $('#board').off('click').on('click', '.square-55d63', function() {
+                        var square = $(this).data('square');
+                        onSquareClick(square);
+                    });
+                    
+                    // Send initial state
+                    conn.send({ 
+                        type: 'init', 
+                        fen: game.fen(),
+                        whiteTime: whiteTime,
+                        blackTime: blackTime
+                    });
+                }, 1000);
+            });
+            
+            conn.on('data', function(data) {
+                console.log('Received:', data);
+                if(data.type === 'move') {
+                    game.load(data.fen);
+                    board.position(game.fen());
+                    // Sync timer
+                    if(data.whiteTime !== undefined) {
+                        whiteTime = data.whiteTime;
+                        blackTime = data.blackTime;
+                        currentTimerTurn = data.currentTimerTurn;
+                        updateTimerDisplay();
+                    }
+                    updateStatus();
+                    switchTimer();
+                } else if(data.type === 'init') {
+                    game.load(data.fen);
+                    board.position(game.fen());
+                    if(data.whiteTime !== undefined) {
+                        whiteTime = data.whiteTime;
+                        blackTime = data.blackTime;
+                        updateTimerDisplay();
+                    }
+                    updateStatus();
+                    startTimer();
+                }
+            });
+            
+            conn.on('close', function() {
+                stopTimer();
+                alert('Connection lost!');
+                showMenu();
+            });
         }
         
         function onDragStart(source, piece, position, orientation) {
-            if (game.game_over()) return false;
-            if (mode === 'pvp') {
-                if ((game.turn() === 'w' && piece.search(/^b/) !== -1) || (game.turn() === 'b' && piece.search(/^w/) !== -1)) return false;
+            if(game.game_over()) return false;
+            
+            if(isOnline) {
+                if((myColor === 'white' && piece.search(/^b/) !== -1) ||
+                   (myColor === 'black' && piece.search(/^w/) !== -1)) {
+                    return false;
+                }
+            } else if(mode === 'pvc') {
+                if(piece.search(/^b/) !== -1) return false;
             } else {
-                if (piece.search(/^b/) !== -1) return false;
+                if((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                   (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                    return false;
+                }
             }
         }
         
         function onDrop(source, target) {
             var move = game.move({ from: source, to: target, promotion: 'q' });
-            if (move === null) return 'snapback';
+            if(move === null) return 'snapback';
+            
             board.position(game.fen());
+            switchTimer();
             updateStatus();
-            if (mode === 'pvc' && game.turn() === 'b') setTimeout(makeComputerMove, 300);
+            
+            // Send move with timer state
+            if(isOnline && conn && conn.open) {
+                conn.send({ 
+                    type: 'move', 
+                    fen: game.fen(),
+                    whiteTime: whiteTime,
+                    blackTime: blackTime,
+                    currentTimerTurn: currentTimerTurn
+                });
+            }
+            
+            // Computer move
+            if(mode === 'pvc' && game.turn() === 'b' && !game.game_over()) {
+                setTimeout(makeComputerMove, 300);
+            }
         }
         
         function makeComputerMove() {
             var moves = game.moves();
-            if (game.game_over() || moves.length === 0) return;
+            if(game.game_over() || moves.length === 0) return;
             game.move(moves[Math.floor(Math.random() * moves.length)]);
             board.position(game.fen());
+            switchTimer();
             updateStatus();
         }
         
-        function onSnapEnd() { board.position(game.fen()); }
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+        
+        // Click-to-move handler
+        function onSquareClick(square) {
+            if(game.game_over()) return;
+            
+            // Prevent clicking during AI turn in PvC mode
+            if(mode === 'pvc' && game.turn() === 'b' && !isOnline) return;
+            if(isOnline && game.turn() !== (myColor === 'white' ? 'w' : 'b')) return;
+            
+            var piece = game.get(square);
+            
+            if(selectedSquare === null) {
+                // First click - select piece
+                if(piece && ((game.turn() === 'w' && piece.color === 'w') || 
+                             (game.turn() === 'b' && piece.color === 'b'))) {
+                    selectedSquare = square;
+                    possibleMoves = game.moves({ square: square, verbose: true }).map(m => m.to);
+                    drawHighlights();
+                }
+            } else {
+                // Second click
+                if(possibleMoves.includes(square)) {
+                    // Move to highlighted square
+                    var move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+                    selectedSquare = null;
+                    possibleMoves = [];
+                    board.position(game.fen());
+                    switchTimer();
+                    updateStatus();
+                    
+                    // Send move online
+                    if(isOnline && conn && conn.open) {
+                        conn.send({ type: 'move', fen: game.fen(), whiteTime: whiteTime, blackTime: blackTime, currentTimerTurn: currentTimerTurn });
+                    }
+                    
+                    // AI move
+                    if(mode === 'pvc' && game.turn() === 'b' && !game.game_over()) {
+                        setTimeout(makeComputerMove, 300);
+                    }
+                } else if(square === selectedSquare) {
+                    // Clicked same square - deselect
+                    selectedSquare = null;
+                    possibleMoves = [];
+                } else if(piece && ((game.turn() === 'w' && piece.color === 'w') || 
+                                    (game.turn() === 'b' && piece.color === 'b'))) {
+                    // Clicked different own piece - select that instead
+                    selectedSquare = square;
+                    possibleMoves = game.moves({ square: square, verbose: true }).map(m => m.to);
+                } else {
+                    // Clicked elsewhere - deselect
+                    selectedSquare = null;
+                    possibleMoves = [];
+                }
+                drawHighlights();
+            }
+        }
+        
+        function drawHighlights() {
+            board.position(game.fen());
+            $('.square-55d63').removeClass('highlight-selected highlight-possible highlight-capture');
+            
+            if(selectedSquare) {
+                var $sq = $('.square-55d63').find('[data-square="' + selectedSquare + '"]').closest('.square-55d63');
+                $sq.addClass('highlight-selected');
+                
+                possibleMoves.forEach(function(toSq) {
+                    var $toSq = $('.square-55d63').find('[data-square="' + toSq + '"]').closest('.square-55d63');
+                    var targetPiece = game.get(toSq);
+                    if(targetPiece) {
+                        $toSq.addClass('highlight-capture');
+                    } else {
+                        $toSq.addClass('highlight-possible');
+                    }
+                });
+            }
+        }
+        
+        function makeComputerMove() {
+            // Will use Stockfish - added later
+            var moves = game.moves();
+            if(game.game_over() || moves.length === 0) return;
+            game.move(moves[Math.floor(Math.random() * moves.length)]);
+            board.position(game.fen());
+            switchTimer();
+            updateStatus();
+        }
         
         function updateStatus() {
             var status = '';
             var turn = game.turn() === 'b' ? 'Black' : 'White';
-            if (game.in_checkmate()) status = 'Game over, ' + turn + ' wins!';
-            else if (game.in_draw()) status = 'Draw';
-            else { status = turn + "'s turn"; if (game.in_check()) status += ' (Check!)'; }
-            document.getElementById('status').textContent = status;
+            
+            if(isOnline) {
+                turn = myColor === 'white' ? (game.turn() === 'w' ? 'Your' : "Opponent's") : (game.turn() === 'b' ? 'Your' : "Opponent's");
+            }
+            
+            if(game.in_checkmate()) {
+                stopTimer();
+                // game.turn() returns the player who got checkmated, so winner is opposite
+                var winner = game.turn() === 'w' ? 'Black' : 'White';
+                if(isOnline) {
+                    winner = (winner === myColor) ? 'You' : (winner === 'White' ? 'White' : 'Black');
+                }
+                status = 'Game over, ' + winner + ' wins!';
+                showWinner(winner);
+            }
+            else if(game.in_draw()) {
+                stopTimer();
+                status = 'Draw!';
+                showWinner('Draw');
+            }
+            else {
+                status = turn + "'s turn";
+                if(game.in_check()) status += ' (Check!)';
+            }
+            
+            $('#status').text(status);
         }
+        
+        function showWinner(winner) {
+            // Show overlay
+            $('#winner-text').text(winner + ' Wins!');
+            $('#winner-overlay').addClass('show');
+            
+            // Load and play YouTube video from 0:18
+            if(window.ytPlayer) {
+                window.ytPlayer.seekTo(18);
+                window.ytPlayer.playVideo();
+            } else {
+                window.ytPlayer = new YT.Player('yt-player', {
+                    height: '0',
+                    width: '0',
+                    videoId: '2EXE7wCii8c',
+                    playerVars: {
+                        'start': 18,
+                        'end': 33,
+                        'loop': 1,
+                        'autoplay': 1,
+                        'controls': 0,
+                        'modestbranding': 1,
+                        'rel': 0
+                    },
+                    events: {
+                        'onReady': function(event) {
+                            event.target.seekTo(18);
+                            event.target.playVideo();
+                        },
+                        'onStateChange': function(event) {
+                            // Loop back to 18 when video ends
+                            if(event.data === YT.PlayerState.ENDED) {
+                                event.target.seekTo(18);
+                                event.target.playVideo();
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        function closeWinnerOverlay() {
+            $('#winner-overlay').removeClass('show');
+            // Stop video
+            if(window.ytPlayer && window.ytPlayer.stopVideo) {
+                window.ytPlayer.stopVideo();
+            }
+            showMenu();
+        }
+        
     </script>
 </body>
 </html>
